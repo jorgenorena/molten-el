@@ -1,4 +1,5 @@
 ;;; molten.el --- Persistent source-region execution on Jupyter -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "27.1") (websocket "1.12"))

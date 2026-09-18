@@ -1,4 +1,5 @@
 ;;; molten-core.el --- Execution records and source anchors -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
 ;; Transport-independent records.  Presentation and storage subscribe to updates.

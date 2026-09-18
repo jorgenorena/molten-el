@@ -1,4 +1,5 @@
 ;;; molten-test.el --- MVP regression tests -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 (setq native-comp-enable-subr-trampolines nil)
 (require 'ert)
 (require 'cl-lib)

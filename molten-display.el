@@ -1,4 +1,5 @@
 ;;; molten-display.el --- Overlay and full-buffer presentation -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
 ;; Displays execution records without inserting into source buffers.

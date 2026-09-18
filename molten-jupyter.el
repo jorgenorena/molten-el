@@ -1,4 +1,5 @@
 ;;; molten-jupyter.el --- Jupyter Server REST and channels -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
 ;; No client-side Python or ZMQ.  websocket.el is needed only when connecting.

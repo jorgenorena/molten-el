@@ -1,4 +1,5 @@
 ;;; integration.el --- Opt-in real Jupyter Server smoke test -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 ;; MOLTEN_TEST_URL, MOLTEN_TEST_TOKEN and MOLTEN_TEST_DIR configure this test.
 (require 'ert)
 (require 'molten)

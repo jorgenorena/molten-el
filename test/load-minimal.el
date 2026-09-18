@@ -1,4 +1,5 @@
 ;;; load-minimal.el --- No external runtime required -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 (setq native-comp-enable-subr-trampolines nil)
 (require 'cl-lib)
 (let ((original-require (symbol-function 'require))

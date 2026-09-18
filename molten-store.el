@@ -1,4 +1,5 @@
 ;;; molten-store.el --- Persistent execution records -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;; Commentary:
 ;; One atomic JSON document per execution; payloads are content-addressed blobs.

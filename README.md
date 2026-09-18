@@ -4,6 +4,10 @@ A small, pure-Elisp frontend for executing arbitrary source regions on a Jupyter
 Server and keeping their output beside the source, including across Emacs restarts.
 No source text is inserted or rewritten to store output.
 
+The source of truth is [molten.org](molten.org), which explains the design,
+user interface, implementation, and tests alongside the code. The `.el` files
+and build scripts are generated from it and remain checked in for normal use.
+
 ## Install
 
 Requires Emacs 27.1 or newer. Install the **pure-Elisp `websocket` package**
@@ -136,6 +140,29 @@ This means changed regions at the beginning/end of a file may be orphaned.
 Staleness describes only changes to the executed source: edits to imports,
 other variables or dependencies do not affect it. Restarting a kernel does not
 make unchanged source “stale”.
+
+## Development: edit the literate source
+
+Edit **[molten.org](molten.org)**, then run `M-x org-babel-tangle` in that buffer,
+or use these commands from the repository root:
+
+```sh
+emacs --batch -Q -l tools/tangle.el
+emacs --batch -Q -l tools/tangle.el --check
+sh test/run-tests.sh
+```
+
+With Make installed, the equivalent targets are `make tangle`,
+`make check-tangle`, and `make test`. The check generates files in a temporary
+directory and fails if they differ from the working tree; it never overwrites
+your files. The test runner and `make compile` perform this check automatically.
+Commit `molten.org` together with its generated files. Direct edits to generated
+files will be replaced the next time you tangle.
+
+Org is needed for development only; installing and loading the generated package
+does not require it. The Org document also contains the source for tests,
+`tools/tangle.el`, `test/run-tests.sh`, and the Makefile. The README and license
+are maintained separately.
 
 ## Tests
 

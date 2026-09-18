@@ -1,4 +1,5 @@
 ;;; restart.el --- Each invocation is a fresh Emacs process -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
 (require 'ert)
 (require 'molten)
 (setq molten-state-directory (expand-file-name "state/" (getenv "MOLTEN_TEST_DIR")))
