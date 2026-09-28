@@ -215,6 +215,31 @@ Validated here with Emacs 30.2, websocket 1.12 and Jupyter Server 2.18.0.
 Graphical image presentation and the actual Termux/SSH path require the manual
 check; the automated real-server test runs headlessly over loopback.
 
+For this machine's Doom/Quarto integration, open
+[examples/molten-smoke.qmd](examples/molten-smoke.qmd), connect and start a Python
+kernel, then put point in the first chunk and press `SPC m RET`. Expect
+`Molten Quarto smoke: sum = 6`, a plot, and the result `6`. The second chunk
+should stay unexecuted. Doom delegates chunk selection to Polymode and keeps
+Molten history in the file's base buffer, with output visible in its code views.
+This adapter is maintained in Doom's `config.org`.
+
+The repeatable test uses the installed Doom macros, keybindings, Quarto mode and
+real server; it checks text, PNG data, re-evaluation, full output, persistence,
+and unchanged source bytes. With a server on port 18991:
+
+```sh
+mkdir -p /tmp/molten-quarto-smoke
+MOLTEN_TEST_DIR=/tmp/molten-quarto-smoke \
+MOLTEN_TEST_URL=http://127.0.0.1:18991 MOLTEN_TEST_TOKEN=YOUR_TOKEN \
+  emacs --batch -Q -l test/doom-quarto-smoke.el
+MOLTEN_TEST_DIR=/tmp/molten-quarto-smoke MOLTEN_TEST_PHASE=restore \
+  emacs --batch -Q -l test/doom-quarto-smoke.el
+```
+
+The second command runs in a fresh Emacs process without connecting to a kernel.
+This test evaluates the relevant Doom configuration sections in batch; graphical
+startup and visual image rendering still require a manual check.
+
 ## Layers and scope
 
 `molten-core.el` owns session/execution/anchor/output structs and the execution

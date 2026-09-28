@@ -228,5 +228,19 @@
       (should (eq 'ready (molten-session-state s)))
       (funcall (plist-get options :on-close) 'mock)
       (should (eq 'disconnected (molten-session-state s))))))
+(ert-deftest molten-display-indirect-view-uses-source-positions ()
+  (molten-test-buffer
+    (let* ((e (molten-test-execution))
+           (records molten-executions)
+           (base (current-buffer))
+           (view (clone-indirect-buffer " *molten-view*" nil)))
+      (unwind-protect
+          (with-current-buffer view
+            (setq molten-executions records molten-display-overlays nil)
+            (molten-display-render)
+            (should (= 1 (length molten-display-overlays)))
+            (should (eq view (overlay-buffer (car molten-display-overlays))))
+            (should (eq base (marker-buffer (molten-execution-start e)))))
+        (kill-buffer view)))))
 (provide 'molten-test)
 ;;; molten-test.el ends here

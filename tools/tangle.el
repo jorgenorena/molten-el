@@ -10,8 +10,8 @@
   '("molten-core.el" "molten-jupyter.el" "molten-store.el"
     "molten-display.el" "molten.el" "test/molten-test.el"
     "test/load-minimal.el" "test/restart.el" "test/integration.el"
-    "test/integration-restore.el" "test/run-tests.sh" "tools/tangle.el"
-    "Makefile")
+    "test/integration-restore.el" "test/doom-quarto-smoke.el"
+    "examples/molten-smoke.qmd" "test/run-tests.sh" "tools/tangle.el" "Makefile")
   "Expected generated files, relative to the repository root.")
 (defun molten-tangle--bytes (file)
   "Return the literal bytes of FILE."

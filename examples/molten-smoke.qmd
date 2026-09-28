@@ -1,0 +1,23 @@
+---
+title: "Molten Quarto smoke test"
+jupyter: python3
+---
+
+Place point inside the first Python chunk and evaluate it. Expected output:
+`Molten Quarto smoke: sum = 6`, a small plot, and the result `6`.
+
+```{python}
+%matplotlib inline
+import matplotlib.pyplot as plt
+values = [1, 2, 3]
+print(f"Molten Quarto smoke: sum = {sum(values)}")
+plt.plot(values, [x * x for x in values])
+plt.show()
+sum(values)
+```
+
+This second chunk must not run when evaluating the first one.
+
+```{python}
+print("SECOND CHUNK EXECUTED")
+```

@@ -960,7 +960,10 @@ Rebuild overlays from newest-first history, considering each slot once. Mark a
 slot seen even when its newest record is hidden so clearing output cannot reveal
 an older result accidentally. Orphaned records have no markers and get no overlay.
 
-The overlay spans the live source range but adds only an =after-string=. Its
+The overlay spans the live source range but adds only an =after-string=. Use
+numeric marker positions in the current presentation buffer: the source markers
+can belong to a base buffer while an indirect buffer shows the same text. Passing
+those foreign markers directly to =make-overlay= would signal an error. Its
 summary shows execution state, freshness and count. Large text or any traceback
 gets a pointer to =molten-show-output= instead of filling the source window.
 Rebuilding after changes favors a small implementation over incremental caching;
@@ -987,8 +990,9 @@ it can become costly with very large histories.
                    (large (or (molten-execution-traceback e)
                               (> (length text) molten-inline-limit)
                               (> (cl-count ?\n text) molten-inline-lines)))
-                   (ov (make-overlay (molten-execution-start e) (molten-execution-end e)
-                                     nil nil t)))
+                   (ov (make-overlay (marker-position (molten-execution-start e))
+                                     (marker-position (molten-execution-end e))
+                                     (current-buffer) nil t)))
               (overlay-put ov 'molten-execution e)
               (overlay-put ov 'evaporate nil)
               (overlay-put ov 'after-string
@@ -1582,6 +1586,20 @@ current one.
       (should (eq 'ready (molten-session-state s)))
       (funcall (plist-get options :on-close) 'mock)
       (should (eq 'disconnected (molten-session-state s))))))
+(ert-deftest molten-display-indirect-view-uses-source-positions ()
+  (molten-test-buffer
+    (let* ((e (molten-test-execution))
+           (records molten-executions)
+           (base (current-buffer))
+           (view (clone-indirect-buffer " *molten-view*" nil)))
+      (unwind-protect
+          (with-current-buffer view
+            (setq molten-executions records molten-display-overlays nil)
+            (molten-display-render)
+            (should (= 1 (length molten-display-overlays)))
+            (should (eq view (overlay-buffer (car molten-display-overlays))))
+            (should (eq base (marker-buffer (molten-execution-start e)))))
+        (kill-buffer view)))))
 (provide 'molten-test)
 ;;; molten-test.el ends here
 #+end_src
@@ -1793,6 +1811,196 @@ or Termux display remains a manual acceptance check.
 ;;; integration-restore.el ends here
 #+end_src
 
+* Opt-in Doom and Quarto smoke test
+
+The Quarto adapter lives in the user's literate Doom configuration. It uses
+Polymode to identify code bodies and routes those ranges to Molten in the file's
+base buffer. Code-cells alone does not understand Quarto fences; selecting an
+entire =.qmd= document would send Markdown and YAML to the kernel. The package
+itself still has no Quarto parser or Polymode dependency.
+
+Quarto's indirect buffers need both canonical file-owned history and their own
+presentation. The Doom adapter shares the base records with the code views and
+renders overlays in each buffer. The display layer accepts numeric source-marker
+positions so it can present the same record in an indirect view. The unit test
+for that behavior requires no Quarto installation.
+
+** A small file for manual and automated checks
+
+Place point inside the first chunk and press =SPC m RET= after connecting and
+starting a Python kernel. Expect stdout, a PNG plot and a plain-text execution
+result. The second chunk makes selecting too much source detectable. Outputs
+remain in the configured state directory; tangling never inserts them here.
+
+#+begin_src markdown :tangle examples/molten-smoke.qmd
+---
+title: "Molten Quarto smoke test"
+jupyter: python3
+---
+
+Place point inside the first Python chunk and evaluate it. Expected output:
+`Molten Quarto smoke: sum = 6`, a small plot, and the result `6`.
+
+```{python}
+%matplotlib inline
+import matplotlib.pyplot as plt
+values = [1, 2, 3]
+print(f"Molten Quarto smoke: sum = {sum(values)}")
+plt.plot(values, [x * x for x in values])
+plt.show()
+sum(values)
+```
+
+This second chunk must not run when evaluating the first one.
+
+```{python}
+print("SECOND CHUNK EXECUTED")
+```
+#+end_src
+
+** Exercise the installed commands against a real kernel
+
+This opt-in test uses the installed Doom, Evil, Quarto and Polymode packages.
+It evaluates the relevant installed configuration sections with actual Doom
+macros, skipping unrelated GUI/preview configuration so the test can run in batch.
+It does not test a complete graphical Doom startup or pixel rendering.
+The selected command comes from the actual =SPC m RET= binding in the code view.
+No code region is supplied directly by the test.
+
+Check the executed source, stdout, PNG MIME data, final value, both views' overlays,
+re-evaluation through =SPC m c r=, history persistence, the full-output command,
+and unchanged source bytes. Finally shut down the kernel. In a separate process,
+the restore phase verifies that the same output is fresh in both views without
+a session. Repeated executions append history rather than erasing earlier tests.
+
+The test expects this machine's standard =~/.config/doom_emacs/= installation;
+=MOLTEN_DOOM_CONFIG= can override the generated config under test. Set
+=MOLTEN_TEST_DIR= to a directory for isolated state. Run commands from the
+repository root with a local Jupyter Server already listening:
+
+#+begin_src sh :tangle no
+mkdir -p /tmp/molten-quarto-smoke
+MOLTEN_TEST_DIR=/tmp/molten-quarto-smoke \
+MOLTEN_TEST_URL=http://127.0.0.1:18991 MOLTEN_TEST_TOKEN=YOUR_TOKEN \
+  emacs --batch -Q -l test/doom-quarto-smoke.el
+MOLTEN_TEST_DIR=/tmp/molten-quarto-smoke MOLTEN_TEST_PHASE=restore \
+  emacs --batch -Q -l test/doom-quarto-smoke.el
+#+end_src
+
+#+begin_src emacs-lisp :tangle test/doom-quarto-smoke.el
+;;; doom-quarto-smoke.el --- Opt-in installed Doom/Quarto test -*- lexical-binding: t; -*-
+;; Generated from molten.org; edit that file, then run the tangle command.
+;; Requires an installed Doom config with the Quarto/Molten adapter.
+;; MOLTEN_TEST_URL/TOKEN configure Jupyter; PHASE is execute or restore.
+(require 'ert)
+(require 'cl-lib)
+(defconst molten-quarto-root
+  (or (getenv "MOLTEN_SOURCE_DIR")
+      (file-name-directory (directory-file-name (file-name-directory load-file-name)))))
+(defconst molten-quarto-file (expand-file-name "examples/molten-smoke.qmd" molten-quarto-root))
+(setq user-emacs-directory (expand-file-name "~/.config/doom_emacs/")
+      native-comp-enable-subr-trampolines nil native-comp-jit-compilation nil)
+(load (expand-file-name "early-init.el" user-emacs-directory) nil t)
+(dolist (dir (directory-files (expand-file-name (format ".local/straight/build-%s/" emacs-version) doom-emacs-dir) t "^[^.]"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(setq doom-disabled-packages nil doom-modules (make-hash-table :test #'equal))
+(load (expand-file-name "init.el" doom-user-dir) nil t)
+(load (expand-file-name "modules/config/use-package/init.el" doom-emacs-dir) nil t)
+(require 'python)
+(require 'evil)
+(require 'doom-keybinds)
+;; Exercise the installed integration with Doom's actual macros. Skip unrelated
+;; GUI/preview configuration so this test can run in batch without side effects.
+(with-temp-buffer
+  (insert-file-contents (or (getenv "MOLTEN_DOOM_CONFIG")
+                           (expand-file-name "config.el" doom-user-dir)))
+  (goto-char (point-min)) (search-forward "(defvar my/molten-source-directory") (beginning-of-line)
+  (let ((end (save-excursion (search-forward ";; Quarto chunk evaluation through Molten:1 ends here")
+                             (line-beginning-position)))
+        (byte-compile-current-file "molten-quarto-smoke"))
+    (while (< (point) end) (eval (read (current-buffer)) t))))
+(require 'code-cells)
+(require 'quarto-mode)
+(setq molten-state-directory (expand-file-name "state/" (getenv "MOLTEN_TEST_DIR")))
+(defun molten-quarto-wait (predicate)
+  "Process events for up to 45 seconds until PREDICATE succeeds."
+  (let ((end (+ (float-time) 45)))
+    (while (and (not (funcall predicate)) (< (float-time) end))
+      (accept-process-output nil 0.05))
+    (should (funcall predicate))))
+(defun molten-quarto-open ()
+  "Open the fixture and return (BASE VIEW) at the first Python chunk."
+  (let ((base (find-file-noselect molten-quarto-file)))
+    (set-buffer base)
+    (goto-char (point-min)) (search-forward "print(f")
+    (pm-switch-to-buffer)
+    (evil-local-mode 1) (evil-normal-state)
+    (should (derived-mode-p 'python-mode))
+    (should (bound-and-true-p poly-quarto-mode))
+    (should molten-mode)
+    (list base (current-buffer))))
+(defun molten-quarto-check-output (base view)
+  "Verify shared records and visible output in BASE and VIEW."
+  (let ((e (car (buffer-local-value 'molten-executions base))))
+    (should (eq base (molten-execution-buffer e)))
+    (should (eq 'done (molten-execution-state e)))
+    (should (eq 'fresh (molten-execution-freshness e)))
+    (should (string-match-p "Molten Quarto smoke: sum = 6" (molten-execution-stdout e)))
+    (should-not (string-match-p "SECOND CHUNK" (molten-execution-stdout e)))
+    (should (cl-some (lambda (o) (assoc "image/png" (molten-output-data o))) (molten-execution-outputs e)))
+    (should (cl-some (lambda (o) (and (eq (molten-output-kind o) 'execute_result)
+                                    (equal "6" (cdr (assoc "text/plain" (molten-output-data o))))))
+                     (molten-execution-outputs e)))
+    (dolist (buffer (list base view))
+      (with-current-buffer buffer
+        (should-not (buffer-modified-p))
+        (should (= 1 (length molten-display-overlays)))
+        (should (eq buffer (overlay-buffer (car molten-display-overlays))))
+        (should (eq e (overlay-get (car molten-display-overlays) 'molten-execution)))))
+    e))
+(ert-deftest molten-quarto-execute ()
+  (let ((original (with-temp-buffer (insert-file-contents-literally molten-quarto-file) (buffer-string))))
+    (molten-connect (getenv "MOLTEN_TEST_URL") (or (getenv "MOLTEN_TEST_TOKEN") ""))
+    (unwind-protect
+        (progn
+          (molten-start-kernel "python3")
+          (molten-quarto-wait (lambda () (eq 'ready (molten-session-state molten-current-session))))
+          (pcase-let* ((`(,base ,view) (molten-quarto-open))
+                       (initial-count (length (buffer-local-value 'molten-executions base))))
+            (with-current-buffer view
+              (let ((command (key-binding (kbd "SPC m RET"))))
+                (should (eq command 'polymode-eval-region-or-chunk))
+                (call-interactively command))
+              (let ((e (car (buffer-local-value 'molten-executions base))))
+                (should (string-prefix-p "%matplotlib inline" (molten-anchor-source (molten-execution-anchor e))))
+                (should-not (string-match-p "```\\|jupyter:\\|SECOND CHUNK" (molten-anchor-source (molten-execution-anchor e))))
+                (molten-quarto-wait (lambda () (memq (molten-execution-state e) '(done error disconnected)))))
+              (molten-quarto-check-output base view)
+              ;; Re-evaluation must also keep records in the file's base buffer.
+              (call-interactively (key-binding (kbd "SPC m c r")))
+              (let ((e (car (buffer-local-value 'molten-executions base))))
+                (molten-quarto-wait (lambda () (memq (molten-execution-state e) '(done error disconnected)))))
+              (molten-quarto-check-output base view)
+              (should (= (+ initial-count 2) (length (buffer-local-value 'molten-executions base))))
+              (should (= (+ initial-count 2) (length (molten-store-load molten-quarto-file))))
+              (let ((saved-view view))
+                (call-interactively (key-binding (kbd "SPC m c o")))
+                (should (string-match-p "Molten Quarto smoke: sum = 6" (buffer-string)))
+                (set-buffer saved-view)))))
+      (when (and molten-current-session (molten-session-kernel-id molten-current-session))
+        (molten-kill-kernel)))
+    (should (equal original (with-temp-buffer (insert-file-contents-literally molten-quarto-file) (buffer-string))))
+    (should-not (featurep 'jupyter))
+    (should-not (featurep 'zmq))))
+(ert-deftest molten-quarto-restore ()
+  (should-not molten-current-session)
+  (pcase-let ((`(,base ,view) (molten-quarto-open)))
+    (should (>= (length (buffer-local-value 'molten-executions base)) 2))
+    (molten-quarto-check-output base view)))
+(ert-run-tests-batch-and-exit (concat "molten-quarto-" (or (getenv "MOLTEN_TEST_PHASE") "execute")))
+;;; doom-quarto-smoke.el ends here
+#+end_src
+
 * Building and checking the generated artifacts
 
 The bootstrap helper and runners are also generated. Their responsibilities are
@@ -1825,8 +2033,8 @@ files. Normal tangle intentionally overwrites generated files.
   '("molten-core.el" "molten-jupyter.el" "molten-store.el"
     "molten-display.el" "molten.el" "test/molten-test.el"
     "test/load-minimal.el" "test/restart.el" "test/integration.el"
-    "test/integration-restore.el" "test/run-tests.sh" "tools/tangle.el"
-    "Makefile")
+    "test/integration-restore.el" "test/doom-quarto-smoke.el"
+    "examples/molten-smoke.qmd" "test/run-tests.sh" "tools/tangle.el" "Makefile")
   "Expected generated files, relative to the repository root.")
 (defun molten-tangle--bytes (file)
   "Return the literal bytes of FILE."

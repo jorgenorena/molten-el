@@ -60,8 +60,9 @@
                    (large (or (molten-execution-traceback e)
                               (> (length text) molten-inline-limit)
                               (> (cl-count ?\n text) molten-inline-lines)))
-                   (ov (make-overlay (molten-execution-start e) (molten-execution-end e)
-                                     nil nil t)))
+                   (ov (make-overlay (marker-position (molten-execution-start e))
+                                     (marker-position (molten-execution-end e))
+                                     (current-buffer) nil t)))
               (overlay-put ov 'molten-execution e)
               (overlay-put ov 'evaporate nil)
               (overlay-put ov 'after-string
